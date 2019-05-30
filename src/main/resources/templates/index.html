@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<body>
+<div id="vm">
+    Welcome<br/>
+    <div v-if="!show">
+        <input  id="name" type="text" v-model="name" placeholder="请输入姓名"/>
+        <input  id="id" type="text" v-model="userId" placeholder="请输入id"/>
+        <button @click="login">登陆</button>
+    </div>
+
+    <div v-else>
+        <input id="text" type="text" v-model="sendMessage" />
+        <button @click="websocketSendMessage">Send</button>
+        <button @click="websocketclose">Close</button>
+        <div id="message">
+            <ul >
+                <li v-for="(message,index) in msg_data">
+                    {{message}}
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div>
+        当前用户列表
+        <ul>
+            <li v-for="user in userList">
+                {{user.name}}
+            </li>
+        </ul>
+    </div>
+
+</div>
+
+</body>
+
+<script type="text/javascript">
+    new Vue({
+        el:'#vm',
+        data() {
+            return {
+                show:false,
+                msg_data: [],
+                websock:'',
+                sendMessage:'',
+                name:'',
+                userId:'',
+                sendId:'',
+                userList:[]
+
+            }
+        },
+        created() {
+            this.initLogin();
+        },
+        mounted(){
+
+            setInterval(this.getUserList, 3000);
+        },
+        destroyed: function () {
+            this.websocketclose();
+        },
+        methods: {
+            initLogin(){
+                let id = localStorage.getItem('id');
+                let name = localStorage.getItem('name');
+                if(name&&id){
+                    this.userId=id
+                    this.name=name
+                    this.show=true
+                    this.initWebSocket()
+                }
+            },
+            login(){
+                 localStorage.setItem('id',this.userId)
+                 localStorage.setItem('name',this.name)
+                 this.show=true
+                 this.initWebSocket()
+            },
+            getUserList(){
+                axios.get(`http://8bxr3a.natappfree.cc/userList`)
+                    .then(response => {
+                        this.userList=response.data
+                    })
+                    .catch(error => {
+                        console.log(error.message)
+                    })
+            },
+            initWebSocket: function () {
+                let userId = this.userId;
+                let name = this.name;
+                this.websock = new WebSocket(`ws://8bxr3a.natappfree.cc/websocket/${name}/${userId}`);
+                this.websock.onopen = this.websocketonopen;
+                this.websock.onerror = this.websocketonerror;
+                this.websock.onmessage = this.websocketonmessage;
+                this.websock.onclose = this.websocketclose;
+            },
+            websocketonopen: function () {
+                console.log("WebSocket连接成功");
+            },
+            websocketonerror: function (e) {
+                console.log("WebSocket连接发生错误");
+            },
+            websocketonmessage: function (e) {
+                var da=e.data
+                console.log(da);
+                this.msg_data.unshift(da);
+            },
+            websocketclose: function (e) {
+                console.log("connection closed (" + e.code + ")");
+                this.websock.close()
+            },
+            websocketSendMessage(){
+                let userId = this.userId;
+                let sendId = this.sendId;
+                let message = this.sendMessage;
+                axios.get(`http://8bxr3a.natappfree.cc/send?userId=${userId}&sendId=${sendId}&message=${message}`)
+                    .then(response => {
+                        console.log(response.data) // 得到返回结果数据
+                    })
+                    .catch(error => {
+                        console.log(error.message)
+                    })
+            }
+
+        }
+    })
+</script>
+</html>
